@@ -1,0 +1,105 @@
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+#include <SPI.h>
+#include <SD.h> 
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// inisialisasi sensor arus
+int pin_sensor_arus = A0;
+int ADC_arus = 0;
+float v_arus = 0.0;
+float arus = 0.0;
+
+//inisialisasi sensor tegangan
+int pin_sensor_tegangan = A1;
+int nilai_ADC = 0;
+float tegangan_plts = 0.0;
+float V_S = 0.0;
+float R1 = 30000.0;
+float R2 = 7500.0;
+
+//inisilaisasi sd card
+const int CS = 4;
+File dataku;
+
+void setup() {
+  Serial.begin(9600);
+  //inisialisasi LCD
+  lcd.begin();
+  lcd.backlight();
+
+  pinMode(7,OUTPUT); //MOSFET Pin
+  digitalWrite(7,LOW); //Initially Turn Off the MOSFET
+
+  //check SD Card
+  lcd.print("Membaca SDcard...");
+  if (!SD.begin(CS)){
+    lcd.println("GAGAL/SDcard rusak!");
+    while (1);
+  }
+  lcd.println("Berhasil");
+  delay(1000);
+  lcd.clear();
+}
+
+void Data_Tegangan();
+void Data_Arus();
+
+void loop(){
+ 
+ Data_Tegangan();
+
+ lcd.setCursor(0,1);
+ lcd.print("V:");
+ lcd.setCursor(2,1);
+ lcd.print(tegangan_plts);
+ lcd.setCursor(7,1);
+ lcd.print(" volt");
+ digitalWrite(7,HIGH); //Turn ON the MOSFET
+ delay(100); //Wait for 100 Milli-
+ 
+ Data_Arus();
+ delay(100); //Wait for 100 Milli-Seconds
+ digitalWrite(7,LOW); //Turn OFF the MOSFET
+ 
+ lcd.setCursor(0,0);
+ lcd.print("I:");
+ lcd.setCursor(2,0);
+ lcd.print(arus);
+ lcd.setCursor(7,0);
+ lcd.print("ampere");
+
+ 
+ //simpan di sd card
+  dataku = SD.open("plts.txt", FILE_WRITE);
+  if (dataku)
+  {
+    dataku.println("");
+    dataku.print(tegangan_plts);
+    dataku.print("|");
+    dataku.print(arus);
+    dataku.close();
+  }
+  else{
+    Serial.println(" | Gagal Tersimpan!");
+  }
+
+ //monitoring di serial monitor
+ Serial.print("tegangan plts: ");
+ Serial.println(tegangan_plts);
+ Serial.print("Arus: ");
+ Serial.println(arus);
+ delay(500);
+}
+
+void Data_Tegangan(){
+ nilai_ADC = analogRead(pin_sensor_tegangan);
+ V_S = (nilai_ADC*5.0)/1023.0;
+ tegangan_plts = (V_S*(R1+R2)/R2);
+}
+void Data_Arus(){
+ ADC_arus = analogRead(pin_sensor_arus);
+ v_arus = ADC_arus * 5 / 1024.0;
+ arus = (v_arus - 2.5)/ 0.185;
+}
